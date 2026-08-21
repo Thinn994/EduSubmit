@@ -1,5 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Cấu hình Firebase cho dự án EduSubmit
 const firebaseConfig = {
@@ -18,3 +20,5 @@ const app = initializeApp(firebaseConfig);
 // Xuất công cụ Auth và GoogleProvider ra để xài cho trang Register (Chỉ 1 lần duy nhất)
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+export const db = getFirestore(app);
+export const storage = getStorage(app);
