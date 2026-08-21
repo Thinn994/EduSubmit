@@ -16,6 +16,7 @@ app.use('/api/courses', require('./routes/courses'));
 // app.use('/api/materials', require('./routes/materials'));
 app.use('/api/assignments', require('./routes/assignments'));
 app.use('/api/submissions', require('./routes/submissions'));
+app.use('/api/materials', require('./routes/materials'));
 // app.use('/api/quizzes', require('./routes/quizzes'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/auth', require('./routes/auth'));

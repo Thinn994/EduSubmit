@@ -9,8 +9,8 @@ import SubmissionList from "./components/SubmissionList";
 import AssignmentDetail from './pages/AssignmentDetail';
 
 import CreateAssignment from './pages/CreateAssignment';
-
 import GradeSubmission from './pages/GradeSubmission';
+import UploadMaterial from './pages/UploadMaterial';
 
 // LẤY IMPORT MỚI CỦA TEAM BRO (PA4) GẮN VÀO ĐÂY
 import MaterialsPage from "./pages/MaterialsPage";
@@ -62,6 +62,11 @@ function App() {
               <Route path="/course/stream/:courseId/assignment/:assignmentId/grade/:submissionId" element={
                 <ProtectedRoute>
                   <GradeSubmission />
+                </ProtectedRoute>
+              } />
+              <Route path="/course/stream/:courseId/upload-material" element={
+                <ProtectedRoute>
+                  <UploadMaterial />
                 </ProtectedRoute>
               } />
 
