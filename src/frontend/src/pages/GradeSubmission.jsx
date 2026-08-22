@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, CheckCircle, MessageSquare, Award, Clock } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import toast from 'react-hot-toast';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -38,6 +39,7 @@ export default function GradeSubmission() {
                 setLoading(false);
             }
         };
+    // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchData();
     }, [submissionId, assignmentId]);
 
@@ -57,7 +59,7 @@ export default function GradeSubmission() {
             }, 1500);
         } catch (error) {
             console.error("Lỗi khi chấm điểm:", error);
-            alert("Có lỗi xảy ra khi lưu điểm.");
+            toast.error("Có lỗi xảy ra khi lưu điểm.");
         } finally {
             setIsSubmitting(false);
         }

@@ -10,7 +10,8 @@ const MaterialSchema = new mongoose.Schema({
     fileName: { type: String },
     fileSize: { type: String },
     type: { type: String }, // e.g., 'pdf', 'video', 'link'
-    textContent: { type: String } // Extracted text for AI processing
+    textContent: { type: String }, // Extracted text for AI processing
+    uploadedBy: { type: String } // Teacher ID
 }, { timestamps: true });
 
 module.exports = mongoose.model('Material', MaterialSchema);

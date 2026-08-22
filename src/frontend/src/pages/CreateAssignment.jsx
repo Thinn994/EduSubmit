@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, FileText, Bot, Plus } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, FileText, Bot, Plus, UploadCloud, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import toast from 'react-hot-toast';
 import axios from 'axios';
+import { storage } from '../firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -19,18 +22,44 @@ export default function CreateAssignment() {
   const [dueTime, setDueTime] = useState('');
   const [points, setPoints] = useState(100);
   const [generateAI, setGenerateAI] = useState(false);
+  
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState(null);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      alert('Vui lòng nhập tiêu đề bài tập.');
+      toast.error('Please enter an assignment title.');
       return;
     }
 
     setIsSubmitting(true);
+    let attachedFileUrl = '';
+    let attachedFileName = '';
+
     try {
-      const formattedDueDate = dueDate ? `${dueDate} ${dueTime}`.trim() : 'Không có hạn';
+      // 1. Upload file if selected
+      if (selectedFile) {
+        const storageRef = ref(storage, `assignments/${courseId}/${Date.now()}_${selectedFile.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, selectedFile);
+        
+        await new Promise((resolve, reject) => {
+            uploadTask.on('state_changed', 
+                null,
+                (error) => reject(error),
+                async () => {
+                    attachedFileUrl = await getDownloadURL(uploadTask.ref);
+                    attachedFileName = selectedFile.name;
+                    resolve();
+                }
+            );
+        });
+      }
+
+      // 2. Save Assignment to DB
+      const formattedDueDate = dueDate ? `${dueDate} ${dueTime}`.trim() : 'No deadline';
 
       const newAssignment = {
         courseId,
@@ -38,19 +67,19 @@ export default function CreateAssignment() {
         description,
         dueDate: formattedDueDate,
         points: parseInt(points, 10) || 100,
-        teacher: userData?.name || 'Giảng viên',
-        generateAI // Note: backend could process this later for quiz generation
+        teacher: userData?.name || 'Instructor',
+        generateAI,
+        attachedFileUrl,
+        attachedFileName
       };
 
       await axios.post(`${API_URL}/assignments`, newAssignment);
       
-      // If generateAI is true, you could also optionally trigger the AI route here,
-      // or the backend could handle it. For now, we just save the assignment.
-      
+      toast.success('Assignment created successfully!');
       navigate(`/course/stream/${courseId}`);
     } catch (error) {
-      console.error("Lỗi khi tạo bài tập:", error);
-      alert('Không thể tạo bài tập lúc này.');
+      console.error("Error creating assignment:", error);
+      toast.error('Could not create assignment at this time.');
     } finally {
       setIsSubmitting(false);
     }
@@ -74,8 +103,8 @@ export default function CreateAssignment() {
             <FileText className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Tạo bài tập mới</h1>
-            <p className={`text-xs ${textSub}`}>Lớp học đang chọn</p>
+            <h1 className="text-xl font-bold">Create New Assignment</h1>
+            <p className={`text-xs ${textSub}`}>Current Course</p>
           </div>
         </div>
       </nav>
@@ -88,31 +117,69 @@ export default function CreateAssignment() {
           <div className={`${bgCard} rounded-2xl p-6 shadow-sm border ${borderCol}`}>
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
               <span className="w-2 h-6 bg-blue-500 rounded-full"></span>
-              Thông tin chung
+              General Information
             </h2>
             
             <div className="space-y-5">
               <div>
-                <label className={`block text-sm font-semibold mb-2 ${textMain}`}>Tiêu đề bài tập <span className="text-red-500">*</span></label>
+                <label className={`block text-sm font-semibold mb-2 ${textMain}`}>Assignment Title <span className="text-red-500">*</span></label>
                 <input 
                   type="text" 
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Nhập tiêu đề (VD: Báo cáo thực hành số 1)"
+                  placeholder="Enter title (e.g., Lab Report 1)"
                   className={`w-full px-4 py-3 rounded-xl border ${borderCol} ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-50 text-gray-800'} focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all`}
                   required
                 />
               </div>
 
               <div>
-                <label className={`block text-sm font-semibold mb-2 ${textMain}`}>Hướng dẫn & Yêu cầu</label>
+                <label className={`block text-sm font-semibold mb-2 ${textMain}`}>Instructions & Requirements</label>
                 <textarea 
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Nhập hướng dẫn chi tiết cho học sinh..."
+                  placeholder="Enter detailed instructions for students..."
                   rows={6}
                   className={`w-full px-4 py-3 rounded-xl border ${borderCol} ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-50 text-gray-800'} focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all resize-y`}
                 />
+              </div>
+
+              {/* ATTACH FILE SECTION */}
+              <div>
+                <label className={`block text-sm font-semibold mb-2 ${textMain}`}>Attach File (Optional)</label>
+                {selectedFile ? (
+                  <div className={`flex items-center justify-between p-4 rounded-xl border ${borderCol} ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shrink-0">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <span className={`text-sm font-medium truncate ${textMain}`}>{selectedFile.name}</span>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setSelectedFile(null)} 
+                      className={`p-1.5 rounded-full hover:bg-red-100 text-red-500 transition-colors shrink-0`}
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed ${borderCol} rounded-xl cursor-pointer ${isDarkMode ? 'hover:bg-gray-700 bg-gray-800' : 'hover:bg-gray-50 bg-white'} transition-colors group`}>
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <UploadCloud className={`w-8 h-8 mb-2 ${textSub} group-hover:text-blue-500 transition-colors`} />
+                      <p className={`text-sm ${textSub} group-hover:text-blue-500 transition-colors`}>
+                        <span className="font-semibold">Click to upload</span> or drag and drop
+                      </p>
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        if(e.target.files[0]) setSelectedFile(e.target.files[0]);
+                      }}
+                    />
+                  </label>
+                )}
               </div>
             </div>
           </div>
@@ -122,11 +189,11 @@ export default function CreateAssignment() {
             <div className={`${bgCard} rounded-2xl p-6 shadow-sm border ${borderCol}`}>
               <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <span className="w-2 h-6 bg-orange-500 rounded-full"></span>
-                Thời hạn nộp bài
+                Deadline
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${textSub}`}>Ngày hết hạn</label>
+                  <label className={`block text-sm font-medium mb-1.5 ${textSub}`}>Due Date</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Calendar className="h-5 w-5 text-gray-400" />
@@ -140,7 +207,7 @@ export default function CreateAssignment() {
                   </div>
                 </div>
                 <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${textSub}`}>Giờ nộp (tùy chọn)</label>
+                  <label className={`block text-sm font-medium mb-1.5 ${textSub}`}>Due Time (Optional)</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Clock className="h-5 w-5 text-gray-400" />
@@ -159,10 +226,10 @@ export default function CreateAssignment() {
             <div className={`${bgCard} rounded-2xl p-6 shadow-sm border ${borderCol}`}>
               <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <span className="w-2 h-6 bg-green-500 rounded-full"></span>
-                Chấm điểm
+                Scoring
               </h2>
               <div>
-                <label className={`block text-sm font-medium mb-1.5 ${textSub}`}>Điểm tối đa</label>
+                <label className={`block text-sm font-medium mb-1.5 ${textSub}`}>Maximum Score</label>
                 <input 
                   type="number"
                   value={points}
@@ -178,8 +245,8 @@ export default function CreateAssignment() {
                     <Bot className="w-6 h-6" />
                   </div>
                   <div className="flex-1">
-                    <p className={`font-semibold text-sm ${generateAI ? 'text-purple-600 dark:text-purple-400' : textMain}`}>Trợ lý AI</p>
-                    <p className={`text-xs ${textSub}`}>Tạo câu hỏi trắc nghiệm tự động</p>
+                    <p className={`font-semibold text-sm ${generateAI ? 'text-purple-600 dark:text-purple-400' : textMain}`}>AI Assistant</p>
+                    <p className={`text-xs ${textSub}`}>Generate AI Quiz with this assignment</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" checked={generateAI} onChange={() => setGenerateAI(!generateAI)} className="sr-only peer" />
@@ -197,7 +264,7 @@ export default function CreateAssignment() {
               onClick={() => navigate(-1)} 
               className={`px-6 py-3 rounded-xl font-semibold transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-300' : 'hover:bg-gray-200 text-gray-600'} border ${borderCol}`}
             >
-              Hủy
+              Cancel
             </button>
             <button 
               type="submit" 
@@ -205,7 +272,7 @@ export default function CreateAssignment() {
               className={`px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               <Plus className="w-5 h-5" />
-              {isSubmitting ? 'Đang giao bài...' : 'Giao bài tập'}
+              {isSubmitting ? 'Uploading...' : 'Create Assignment'}
             </button>
           </div>
 

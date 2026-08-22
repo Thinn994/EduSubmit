@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
 // POST /api/materials
 router.post('/', async (req, res) => {
     try {
-        const { courseId, title, description, category, visibility, fileUrl, fileName, fileSize, type } = req.body;
+        const { courseId, title, description, category, visibility, fileUrl, fileName, fileSize, type, uploadedBy } = req.body;
         
         const material = new Material({
             courseId,
@@ -31,7 +31,8 @@ router.post('/', async (req, res) => {
             fileUrl,
             fileName,
             fileSize,
-            type
+            type,
+            uploadedBy
         });
         
         await material.save();

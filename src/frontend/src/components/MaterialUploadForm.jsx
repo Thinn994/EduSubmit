@@ -1,28 +1,31 @@
 import { useState } from "react";
 import { uploadMaterial } from "../services/api";
+import toast from 'react-hot-toast';
 
 
-function MaterialUploadForm(){
+function MaterialUploadForm({ courseId }){
 
     const [file, setFile] = useState(null);
 
 
     async function handleUpload(){
 
-        if(!file){
-            alert("Please select a file");
+        if (!file) {
+            toast.error("Please select a file");
             return;
         }
 
-
-        const result = await uploadMaterial(
-            file,
-            1, // course_id test
-            1  // lecturer_id test
-        );
-
-
-        alert(result.message);
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("courseId", courseId);
+        formData.append("uploaderName", "Lương Vĩ Lương");
+        
+        const result = await uploadMaterial(formData);
+        if (result.success) {
+            toast.success(result.message);
+        } else {
+            toast.error(result.message);
+        }
 
         setFile(null);
     }

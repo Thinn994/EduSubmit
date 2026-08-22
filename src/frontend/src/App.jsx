@@ -1,5 +1,6 @@
-import React from 'react';
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 
 import Dashboard from './pages/Dashboard';
 import CourseStream from './pages/CourseStream';
@@ -15,6 +16,8 @@ import UploadMaterial from './pages/UploadMaterial';
 // LẤY IMPORT MỚI CỦA TEAM BRO (PA4) GẮN VÀO ĐÂY
 import MaterialsPage from "./pages/MaterialsPage";
 import QuizPage from "./pages/QuizPage";
+import CourseForum from "./pages/CourseForum";
+import CoursePeople from "./pages/CoursePeople";
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -33,10 +36,12 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter>
+          <Toaster position="top-right" />
           <div className="relative min-h-screen">
             <Routes>
               {/* LUỒNG ĐĂNG NHẬP / ĐĂNG KÝ */}
               <Route path="/register" element={<Register />} />
+              <Route path="/login" element={<Register />} />
 
               {/* LUỒNG DASHBOARD & LỚP HỌC */}
               <Route path="/dashboard" element={
@@ -47,6 +52,16 @@ function App() {
               <Route path="/course/stream/:courseId" element={
                 <ProtectedRoute>
                   <CourseStream />
+                </ProtectedRoute>
+              } />
+              <Route path="/course/stream/:courseId/forum" element={
+                <ProtectedRoute>
+                  <CourseForum />
+                </ProtectedRoute>
+              } />
+              <Route path="/course/stream/:courseId/people" element={
+                <ProtectedRoute>
+                  <CoursePeople />
                 </ProtectedRoute>
               } />
               <Route path="/course/stream/:courseId/create-assignment" element={

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createQuiz } from "../services/api";
+import toast from 'react-hot-toast';
 
 
 function QuizForm({onCreated}){
@@ -20,9 +21,7 @@ function QuizForm({onCreated}){
             description
         )
         .then(()=>{
-    
-            alert("Quiz created");
-
+            toast.success("Quiz created");
             onCreated();
 
         });

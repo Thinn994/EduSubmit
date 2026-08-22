@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
@@ -17,6 +17,7 @@ export const AuthProvider = ({ children }) => {
         if (storedUser) {
             try {
                 const user = JSON.parse(storedUser);
+                // eslint-disable-next-line react-hooks/set-state-in-effect
                 setCurrentUser(user);
                 setUserRole(user.role);
                 setUserData(user);

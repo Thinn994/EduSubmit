@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ArrowLeft, UploadCloud, File, FileText, CheckCircle, X, Type, Tag, AlignLeft, Eye, EyeOff } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { storage } from '../firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import toast from 'react-hot-toast';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -13,11 +14,11 @@ export default function UploadMaterial() {
     const { courseId } = useParams();
     const navigate = useNavigate();
     const { isDarkMode } = useTheme();
-    const { userData } = useAuth();
+    const { currentUser } = useAuth();
     const fileInputRef = useRef(null);
 
     const [title, setTitle] = useState('');
-    const [category, setCategory] = useState('Bài giảng');
+    const [category, setCategory] = useState('Lecture');
     const [description, setDescription] = useState('');
     const [visibility, setVisibility] = useState(true);
     const [selectedFile, setSelectedFile] = useState(null);
@@ -32,18 +33,19 @@ export default function UploadMaterial() {
     const textSub = isDarkMode ? 'text-gray-400' : 'text-gray-500';
     const borderCol = isDarkMode ? 'border-gray-700' : 'border-gray-200';
 
-    useEffect(() => {
-        fetchMaterials();
-    }, [courseId]);
-
     const fetchMaterials = async () => {
         try {
             const res = await axios.get(`${API_URL}/materials?courseId=${courseId}`);
             setRecentMaterials(res.data.slice(0, 5)); // show top 5 recent
         } catch (error) {
-            console.error("Lỗi khi tải tài liệu:", error);
+            console.error("Error loading materials:", error);
         }
     };
+
+    useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchMaterials();
+    }, [courseId]);
 
     const handleFileSelect = (e) => {
         const file = e.target.files[0];
@@ -79,11 +81,11 @@ export default function UploadMaterial() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!selectedFile) {
-            alert('Vui lòng chọn một file để tải lên.');
+            toast.error('Please select a file to upload.');
             return;
         }
         if (!title.trim()) {
-            alert('Vui lòng nhập tiêu đề.');
+            toast.error('Please enter a title.');
             return;
         }
 
@@ -103,7 +105,7 @@ export default function UploadMaterial() {
                 }, 
                 (error) => {
                     console.error("Firebase upload error:", error);
-                    alert("Lỗi tải file lên server.");
+                    toast.error("Error uploading file to server.");
                     setIsUploading(false);
                 }, 
                 async () => {
@@ -120,7 +122,8 @@ export default function UploadMaterial() {
                         fileUrl: downloadURL,
                         fileName: selectedFile.name,
                         fileSize: formatFileSize(selectedFile.size),
-                        type: fileExt
+                        type: fileExt,
+                        uploadedBy: currentUser.uid
                     };
 
                     await axios.post(`${API_URL}/materials`, newMaterial);
@@ -128,19 +131,20 @@ export default function UploadMaterial() {
                     // Reset form and refresh list
                     setTitle('');
                     setDescription('');
-                    setCategory('Bài giảng');
+                    setCategory('Lecture');
                     setSelectedFile(null);
                     setUploadProgress(0);
                     setIsUploading(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
                     fetchMaterials();
                     
-                    alert('Đăng tài liệu thành công!');
+                    toast.success('Material uploaded successfully!');
                 }
             );
 
         } catch (error) {
-            console.error("Lỗi submit:", error);
-            alert("Có lỗi xảy ra khi lưu tài liệu.");
+            console.error("Submit error:", error);
+            toast.error("An error occurred while saving material.");
             setIsUploading(false);
         }
     };
@@ -216,7 +220,7 @@ export default function UploadMaterial() {
                                         {isUploading && (
                                             <div className="mt-2">
                                                 <div className="flex justify-between text-xs font-semibold text-indigo-600 mb-1">
-                                                    <span>Đang tải lên...</span>
+                                                    <span>Uploading...</span>
                                                     <span>{uploadProgress}%</span>
                                                 </div>
                                                 <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
@@ -233,13 +237,13 @@ export default function UploadMaterial() {
                                 {/* Title */}
                                 <div className="md:col-span-2">
                                     <label className={`flex items-center gap-2 text-sm font-semibold mb-2 ${textMain}`}>
-                                        <Type className="w-4 h-4 text-indigo-500" /> Tiêu đề tài liệu <span className="text-red-500">*</span>
+                                        <Type className="w-4 h-4 text-indigo-500" /> Title tài liệu <span className="text-red-500">*</span>
                                     </label>
                                     <input 
                                         type="text" 
                                         value={title}
                                         onChange={(e) => setTitle(e.target.value)}
-                                        placeholder="VD: Slide Bài giảng Chương 1"
+                                        placeholder="VD: Slide Lecture Chương 1"
                                         className={`w-full px-4 py-3 rounded-xl border ${borderCol} ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-50 text-gray-800'} focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all`}
                                         required
                                         disabled={isUploading}
@@ -249,7 +253,7 @@ export default function UploadMaterial() {
                                 {/* Category */}
                                 <div>
                                     <label className={`flex items-center gap-2 text-sm font-semibold mb-2 ${textMain}`}>
-                                        <Tag className="w-4 h-4 text-indigo-500" /> Danh mục
+                                        <Tag className="w-4 h-4 text-indigo-500" /> Category
                                     </label>
                                     <select
                                         value={category}
@@ -257,17 +261,17 @@ export default function UploadMaterial() {
                                         disabled={isUploading}
                                         className={`w-full px-4 py-3 rounded-xl border ${borderCol} ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-50 text-gray-800'} focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer`}
                                     >
-                                        <option value="Bài giảng">Bài giảng (Slides/Lý thuyết)</option>
-                                        <option value="Tài liệu tham khảo">Tài liệu tham khảo</option>
+                                        <option value="Lecture">Lecture (Slides/Lý thuyết)</option>
+                                        <option value="Reference Material">Reference Material</option>
                                         <option value="Đề thi cũ">Đề thi / Đề cương</option>
-                                        <option value="Khác">Khác</option>
+                                        <option value="Other">Other</option>
                                     </select>
                                 </div>
 
                                 {/* Visibility Toggle */}
                                 <div className="flex flex-col justify-center">
                                     <label className={`flex items-center gap-2 text-sm font-semibold mb-2 ${textMain}`}>
-                                        {visibility ? <Eye className="w-4 h-4 text-green-500" /> : <EyeOff className="w-4 h-4 text-gray-500" />} Hiển thị với học sinh
+                                        {visibility ? <Eye className="w-4 h-4 text-green-500" /> : <EyeOff className="w-4 h-4 text-gray-500" />} Visible to students
                                     </label>
                                     <label className="relative inline-flex items-center cursor-pointer mt-1">
                                         <input type="checkbox" checked={visibility} onChange={() => setVisibility(!visibility)} disabled={isUploading} className="sr-only peer" />
@@ -281,7 +285,7 @@ export default function UploadMaterial() {
                                 {/* Description */}
                                 <div className="md:col-span-2">
                                     <label className={`flex items-center gap-2 text-sm font-semibold mb-2 ${textMain}`}>
-                                        <AlignLeft className="w-4 h-4 text-indigo-500" /> Mô tả (Tùy chọn)
+                                        <AlignLeft className="w-4 h-4 text-indigo-500" /> Description (Tùy chọn)
                                     </label>
                                     <textarea 
                                         value={description}
@@ -323,7 +327,7 @@ export default function UploadMaterial() {
                         
                         <div className="flex flex-col gap-3">
                             {recentMaterials.length === 0 ? (
-                                <p className={`text-sm ${textSub} text-center py-6`}>Chưa có tài liệu nào trong lớp học này.</p>
+                                <p className={`text-sm ${textSub} text-center py-6`}>No materials yet trong lớp học này.</p>
                             ) : (
                                 recentMaterials.map((mat) => (
                                     <a key={mat._id} href={mat.fileUrl} target="_blank" rel="noreferrer" className={`group p-3 border ${borderCol} rounded-xl flex items-start gap-3 transition-colors ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>

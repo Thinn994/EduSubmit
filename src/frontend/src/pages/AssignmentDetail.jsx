@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, FileText, Plus, X, File, User, Loader } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { storage } from '../firebase';
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
+import * as XLSX from 'xlsx';
+import toast from 'react-hot-toast';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -57,9 +59,32 @@ export default function AssignmentDetail() {
                 setLoading(false);
             }
         };
+    // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchData();
     }, [assignmentId, currentUser, userRole]);
 
+    const handleExportExcel = () => {
+        if (!teacherSubmissions || teacherSubmissions.length === 0) {
+            toast.error("No submissions to export.");
+            return;
+        }
+
+        const dataToExport = teacherSubmissions.map(sub => ({
+            "Student Name": sub.studentName || 'Unknown',
+            "Email": sub.studentEmail || 'N/A',
+            "Submitted At": new Date(sub.createdAt).toLocaleString('vi-VN'),
+            "Grade": sub.grade !== undefined ? sub.grade : 'Not Graded',
+            "Max Score": assignment?.points || 100,
+            "Feedback": sub.feedback || ''
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Grades");
+        
+        // Generate file
+        XLSX.writeFile(workbook, `${assignment.title}_Grades.xlsx`);
+    };
 
     const handleFileUploadClick = () => {
         if (fileInputRef.current) {
@@ -100,7 +125,7 @@ export default function AssignmentDetail() {
                 assignmentId: assignmentId,
                 courseId: courseId,
                 studentId: currentUser.uid,
-                studentName: userData?.name || 'Sinh viên',
+                studentName: userData?.name || 'Student',
                 fileUrl: downloadURL,
                 fileName: file.name
             };
@@ -110,11 +135,11 @@ export default function AssignmentDetail() {
             setSubmission(response.data);
             setUploadedFile({ ...uploadedFile, url: downloadURL, isExisting: true });
             setIsSubmitted(true);
-            alert("Nộp bài thành công!");
+            toast.success("Submitted successfully!");
 
         } catch (error) {
-            console.error("Lỗi nộp bài:", error);
-            alert("Đã xảy ra lỗi khi nộp bài.");
+            console.error("Error submitting:", error);
+            toast.error("An error occurred while submitting.");
         } finally {
             setUploading(false);
         }
@@ -136,10 +161,10 @@ export default function AssignmentDetail() {
             setSubmission(null);
             setUploadedFile(null);
             setIsSubmitted(false);
-            alert("Đã hủy nộp bài!");
+            toast.success("Submission canceled!");
         } catch (error) {
-             console.error("Lỗi hủy nộp:", error);
-             alert("Không thể hủy nộp bài lúc này.");
+             console.error("Error unsubmitting:", error);
+             toast.error("Could not cancel submission at this time.");
         }
     };
 
@@ -154,9 +179,9 @@ export default function AssignmentDetail() {
     if (!assignment) {
          return (
             <div className={`min-h-screen flex flex-col items-center justify-center ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-800'}`}>
-                <h2 className="text-2xl font-bold mb-4">Bài tập không tồn tại!</h2>
+                <h2 className="text-2xl font-bold mb-4">Assignment not found!</h2>
                 <button onClick={() => navigate(-1)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Quay lại
+                Go back
                 </button>
             </div>
         );
@@ -178,7 +203,7 @@ export default function AssignmentDetail() {
                         <ArrowLeft className={`w-6 h-6 ${textSub}`} />
                     </button>
                     <span className={`text-xl font-medium ${textMain}`}>
-                        Chi tiết bài tập
+                        Assignment Details
                     </span>
                 </div>
                 <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium cursor-pointer">
@@ -197,19 +222,32 @@ export default function AssignmentDetail() {
                             </div>
                             <div>
                                 <h1 className="text-2xl md:text-3xl font-medium text-blue-500 mb-2">{assignment.title}</h1>
-                                <p className={`font-medium ${textMain}`}>{assignment.teacher || 'Giảng viên'}</p>
+                                <p className={`font-medium ${textMain}`}>{assignment.teacher || 'Instructor'}</p>
                                 <div className={`flex items-center gap-4 text-sm mt-1 font-medium ${textSub}`}>
                                     <span>{assignment.points ? `${assignment.points} điểm` : '100 điểm'}</span>
                                     <span>•</span>
-                                    <span className={`${textMain}`}>Đến hạn: {assignment.dueDate || 'Chưa rõ'}</span>
+                                    <span className={`${textMain}`}>Due: {assignment.dueDate || 'Unknown'}</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className={`border-t ${borderCol} pt-6`}>
                             <p className={`${textMain} whitespace-pre-line leading-relaxed text-sm md:text-base`}>
-                                {assignment.description || 'Không có mô tả chi tiết.'}
+                                {assignment.description || 'No detailed description.'}
                             </p>
+                            {assignment.attachedFileUrl && (
+                                <div className="mt-4">
+                                    <a 
+                                        href={assignment.attachedFileUrl} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-400 text-sm font-semibold rounded-lg transition-colors border border-gray-200 dark:border-gray-700"
+                                    >
+                                        <FileText className="w-5 h-5" />
+                                        Download Attachment
+                                    </a>
+                                </div>
+                            )}
                         </div>
 
                         <div className={`border-t ${borderCol} pt-6 mt-8`}>
@@ -218,7 +256,7 @@ export default function AssignmentDetail() {
                                     <User className="w-6 h-6" />
                                 </div>
                                 <div className={`flex-1 border ${borderCol} rounded-full px-4 py-2 text-sm ${textSub} cursor-text ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
-                                    Thêm nhận xét của lớp học...
+                                    Add a class comment...
                                 </div>
                             </div>
                         </div>
@@ -229,9 +267,9 @@ export default function AssignmentDetail() {
                         {userRole === 'student' ? (
                             <div className={`${bgCard} border ${borderCol} rounded-xl p-5 shadow-sm`}>
                                 <div className="flex justify-between items-center mb-4">
-                                    <h2 className={`text-xl font-medium ${textMain}`}>Bài tập của bạn</h2>
+                                    <h2 className={`text-xl font-medium ${textMain}`}>Your work</h2>
                                     <span className={`text-sm font-medium ${submission?.grade !== undefined ? 'text-blue-500' : 'text-green-500'}`}>
-                                        {submission?.grade !== undefined ? 'Đã chấm điểm' : (isSubmitted ? 'Đã nộp' : 'Đã giao')}
+                                        {submission?.grade !== undefined ? 'Graded' : (isSubmitted ? 'Turned in' : 'Assigned')}
                                     </span>
                                 </div>
 
@@ -239,7 +277,7 @@ export default function AssignmentDetail() {
                                 {submission?.grade !== undefined && (
                                     <div className={`mb-6 p-4 rounded-xl border ${isDarkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-100'}`}>
                                         <div className="flex items-center justify-between mb-3">
-                                            <span className={`text-sm font-semibold ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>Điểm số:</span>
+                                            <span className={`text-sm font-semibold ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>Score:</span>
                                             <span className={`text-xl font-bold px-3 py-1 rounded-lg ${
                                                 submission.grade >= (assignment?.points || 100) / 2 
                                                 ? 'bg-green-100 text-green-700' 
@@ -253,7 +291,7 @@ export default function AssignmentDetail() {
                                             <div className={`mt-3 p-3 rounded-lg border-l-4 ${isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-300'}`}>
                                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-1">
                                                     <User className="w-3 h-3" />
-                                                    Giáo viên nhận xét
+                                                    Teacher feedback
                                                 </p>
                                                 <p className={`text-sm italic ${textMain}`}>{submission.feedback}</p>
                                             </div>
@@ -302,7 +340,7 @@ export default function AssignmentDetail() {
                                                 className={`w-full py-2.5 px-4 flex items-center justify-center gap-2 border ${borderCol} rounded-md text-blue-500 font-medium ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-blue-50'} transition-colors`}
                                             >
                                                 <Plus className="w-5 h-5" />
-                                                Thêm hoặc tạo
+                                                Add or create
                                             </button>
                                         )}
                                         <button
@@ -313,7 +351,7 @@ export default function AssignmentDetail() {
                                                     : 'bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed'
                                                 }`}
                                         >
-                                            {uploading ? 'Đang nộp...' : 'Nộp bài'}
+                                            {uploading ? 'Submitting...' : 'Submit'}
                                         </button>
                                     </div>
                                 ) : (
@@ -321,26 +359,34 @@ export default function AssignmentDetail() {
                                         onClick={handleCancelSubmit}
                                         className={`w-full py-2.5 px-4 border ${borderCol} rounded-md ${textMain} font-medium ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors mt-2`}
                                     >
-                                        Hủy nộp bài
+                                        Unsubmit
                                     </button>
                                 )}
                             </div>
                         ) : (
                             <div className={`${bgCard} border ${borderCol} rounded-xl p-5 shadow-sm`}>
-                                <h2 className={`text-xl font-medium ${textMain} mb-4 flex items-center justify-between`}>
-                                    <span>Danh sách bài nộp</span>
-                                    <span className="text-sm bg-blue-100 text-blue-600 px-3 py-1 rounded-full">{teacherSubmissions.length} bài</span>
-                                </h2>
+                                <div className="flex flex-col gap-3 mb-4">
+                                    <h2 className={`text-xl font-medium ${textMain} flex items-center justify-between`}>
+                                        <span>Danh sách bài nộp</span>
+                                        <span className="text-sm bg-blue-100 text-blue-600 px-3 py-1 rounded-full">{teacherSubmissions.length} bài</span>
+                                    </h2>
+                                    <button 
+                                        onClick={handleExportExcel}
+                                        className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <FileText className="w-4 h-4" /> Export Grades (Excel)
+                                    </button>
+                                </div>
                                 
                                 <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-2">
                                     {teacherSubmissions.length === 0 ? (
-                                        <p className="text-gray-500 text-sm text-center py-4">Chưa có sinh viên nào nộp bài.</p>
+                                        <p className="text-gray-500 text-sm text-center py-4">No student has submitted yet.</p>
                                     ) : (
                                         teacherSubmissions.map(sub => (
                                             <div key={sub._id} className={`p-4 border ${borderCol} rounded-lg ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors flex flex-col gap-2`}>
                                                 <div className="flex justify-between items-start">
                                                     <div>
-                                                        <h3 className="font-semibold text-sm">{sub.studentName || 'Sinh viên'}</h3>
+                                                        <h3 className="font-semibold text-sm">{sub.studentName || 'Student'}</h3>
                                                         <p className="text-xs text-gray-500">
                                                             {new Date(sub.createdAt).toLocaleString('vi-VN')}
                                                         </p>
@@ -351,7 +397,7 @@ export default function AssignmentDetail() {
                                                         </span>
                                                     ) : (
                                                         <span className="text-xs font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded-md">
-                                                            Chưa chấm
+                                                            Not graded
                                                         </span>
                                                     )}
                                                 </div>
@@ -359,7 +405,7 @@ export default function AssignmentDetail() {
                                                     onClick={() => navigate(`/course/stream/${courseId}/assignment/${assignmentId}/grade/${sub._id}`)}
                                                     className="mt-2 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors"
                                                 >
-                                                    Chấm bài
+                                                    Grade
                                                 </button>
                                             </div>
                                         ))
@@ -371,7 +417,7 @@ export default function AssignmentDetail() {
                         <div className="mt-4 flex items-center gap-3 cursor-text">
                             <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium shrink-0">{userInitials}</div>
                             <div className={`flex-1 border ${borderCol} rounded-full px-4 py-1.5 text-sm ${textSub} ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
-                                Nhận xét riêng tư...
+                                Private comments...
                             </div>
                         </div>
                     </div>

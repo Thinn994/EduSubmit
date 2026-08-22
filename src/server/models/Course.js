@@ -8,6 +8,8 @@ const CourseSchema = new mongoose.Schema({
     teacherId: { type: String, required: true }, // Firebase UID of the teacher
     teacher: { type: String, required: true },
     enrolledStudents: [{ type: String }], // Array of Firebase UIDs
+    schedule: { type: String },
+    maxStudents: { type: Number },
     color: { type: String, default: 'bg-blue-600' }
 }, { timestamps: true });
 
